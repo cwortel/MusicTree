@@ -97,7 +97,28 @@ final class ArtistDetailViewModel {
         }
 
         if !mbReleases.isEmpty {
-            releases = mbReleases.sorted { ($0.year ?? 0) > ($1.year ?? 0) }
+            // Inject artist name into releases (MB release-groups don't include it)
+            let artistName = artist.name
+            releases = mbReleases.map { album in
+                Album(
+                    id: album.id,
+                    title: album.title,
+                    artistName: artistName,
+                    year: album.year,
+                    genres: album.genres,
+                    styles: album.styles,
+                    coverImageURL: album.coverImageURL,
+                    tracklist: album.tracklist,
+                    credits: album.credits,
+                    formats: album.formats,
+                    country: album.country,
+                    labels: album.labels,
+                    discogsID: album.discogsID,
+                    musicBrainzID: album.musicBrainzID,
+                    sources: album.sources,
+                    isReleaseGroup: album.isReleaseGroup
+                )
+            }.sorted { ($0.year ?? 0) > ($1.year ?? 0) }
         } else if let discogsID = artist.discogsID {
             // Fallback: Discogs releases (noisier but better than nothing)
             do {

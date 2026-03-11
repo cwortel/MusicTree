@@ -96,17 +96,19 @@ final class MusicBrainzService {
             URLQueryItem(name: "artist", value: mbid),
             URLQueryItem(name: "fmt", value: "json"),
             URLQueryItem(name: "limit", value: "100"),
-            URLQueryItem(name: "type", value: "album|ep|single")
+            URLQueryItem(name: "type", value: "album|ep|single"),
+            URLQueryItem(name: "inc", value: "genres")
         ]) else { return [] }
 
         let response: MBReleaseGroupResponse = try await client.get(url, headers: headers)
         return response.releaseGroups.map { rg in
-            Album(
+            let genres = rg.genres?.compactMap { $0.name }.filter { !$0.isEmpty }
+            return Album(
                 id: "mb-\(rg.id)",
                 title: rg.title,
                 artistName: "",
                 year: rg.firstReleaseDate.flatMap { Int($0.prefix(4)) },
-                genres: nil,
+                genres: genres?.isEmpty == false ? genres : nil,
                 styles: nil,
                 coverImageURL: "https://coverartarchive.org/release-group/\(rg.id)/front-250",
                 tracklist: nil,
@@ -363,12 +365,17 @@ struct MBReleaseGroup: Decodable {
     let title: String
     let primaryType: String?
     let firstReleaseDate: String?
+    let genres: [MBGenreTag]?
 
     enum CodingKeys: String, CodingKey {
-        case id, title
+        case id, title, genres
         case primaryType = "primary-type"
         case firstReleaseDate = "first-release-date"
     }
+}
+
+struct MBGenreTag: Decodable {
+    let name: String
 }
 
 struct MBArtistWithRels: Decodable {
