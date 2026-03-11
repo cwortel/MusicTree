@@ -1,4 +1,5 @@
 import SwiftUI
+import SwiftData
 
 struct ArtistDetailView: View {
     @State private var viewModel: ArtistDetailViewModel
@@ -273,7 +274,18 @@ private struct ReleaseTypeSection: View {
 private struct ReleaseRow: View {
     let album: Album
     @Environment(\.modelContext) private var modelContext
-    @State private var isAdded = false
+    @Query private var collectionItems: [CollectionItem]
+    @State private var justAdded = false
+
+    init(album: Album) {
+        self.album = album
+        let albumID: String? = album.id
+        _collectionItems = Query(filter: #Predicate<CollectionItem> { item in
+            item.sourceID == albumID
+        })
+    }
+
+    private var inCollection: Bool { !collectionItems.isEmpty || justAdded }
 
     var body: some View {
         HStack(spacing: 0) {
@@ -282,20 +294,15 @@ private struct ReleaseRow: View {
             }
             Spacer()
             Button {
-                guard !isAdded else { return }
+                guard !inCollection else { return }
                 PersistenceService.addToCollection(album: album, context: modelContext)
                 withAnimation(.easeInOut(duration: 0.3)) {
-                    isAdded = true
-                }
-                DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
-                    withAnimation(.easeInOut(duration: 0.4)) {
-                        isAdded = false
-                    }
+                    justAdded = true
                 }
             } label: {
-                Image(systemName: isAdded ? "checkmark.circle.fill" : "plus.circle")
+                Image(systemName: inCollection ? "checkmark.circle.fill" : "plus.circle")
                     .font(.title3)
-                    .foregroundStyle(isAdded ? .green : .secondary)
+                    .foregroundStyle(inCollection ? .green : .secondary)
                     .contentTransition(.symbolEffect(.replace))
             }
             .buttonStyle(.plain)
