@@ -56,23 +56,26 @@ struct AlbumDetailView: View {
                 // Add to collection button
                 Button {
                     PersistenceService.addToCollection(album: viewModel.album, context: modelContext)
-                    showAddedConfirmation = true
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
-                        showAddedConfirmation = false
+                    withAnimation(.easeInOut(duration: 0.3)) {
+                        showAddedConfirmation = true
+                    }
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                        withAnimation(.easeInOut(duration: 0.4)) {
+                            showAddedConfirmation = false
+                        }
                     }
                 } label: {
-                    if showAddedConfirmation {
-                        Label("Added to Collection", systemImage: "checkmark.circle.fill")
-                            .frame(maxWidth: .infinity)
-                    } else {
-                        Label("Add to Collection", systemImage: "plus.circle.fill")
-                            .frame(maxWidth: .infinity)
+                    HStack(spacing: 8) {
+                        Image(systemName: showAddedConfirmation ? "checkmark.circle.fill" : "plus.circle.fill")
+                            .contentTransition(.symbolEffect(.replace))
+                        Text(showAddedConfirmation ? "Saved!" : "Add to Collection")
+                            .fontWeight(.semibold)
                     }
+                    .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(showAddedConfirmation ? .green : .accentColor)
                 .disabled(showAddedConfirmation)
-                .animation(.easeInOut(duration: 0.25), value: showAddedConfirmation)
                 .padding(.horizontal)
 
                 // Tracklist
