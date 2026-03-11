@@ -20,6 +20,19 @@ final class ArtistDetailViewModel {
     private let discogs = DiscogsService()
     private let musicBrainz = MusicBrainzService()
 
+    /// Ordered release type categories
+    static let releaseTypeOrder = ["Album", "EP", "Single", "Other"]
+
+    /// Releases grouped by type (Album, EP, Single, Other), each sorted by year descending
+    var groupedReleases: [(type: String, albums: [Album])] {
+        guard let releases else { return [] }
+        let dict = Dictionary(grouping: releases, by: \.releaseType)
+        return Self.releaseTypeOrder.compactMap { type in
+            guard let albums = dict[type], !albums.isEmpty else { return nil }
+            return (type: type, albums: albums)
+        }
+    }
+
     init(artist: Artist) {
         self.artist = artist
     }

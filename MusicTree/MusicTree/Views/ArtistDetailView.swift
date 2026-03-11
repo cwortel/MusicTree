@@ -3,6 +3,7 @@ import SwiftUI
 struct ArtistDetailView: View {
     @State private var viewModel: ArtistDetailViewModel
     @State private var releasesExpanded = false
+    @State private var expandedTypes: Set<String> = ["Album"]
     @State private var membersExpanded = false
     @State private var showImageZoom = false
 
@@ -77,40 +78,26 @@ struct ArtistDetailView: View {
                                 Spacer()
                             }
                             .padding(.vertical, 8)
-                        } else if let releases = viewModel.releases {
-                            if releases.isEmpty {
+                        } else if let _ = viewModel.releases {
+                            let grouped = viewModel.groupedReleases
+                            if grouped.isEmpty {
                                 Text("No releases found.")
                                     .font(.subheadline)
                                     .foregroundStyle(.secondary)
                                     .padding(.vertical, 4)
                             } else {
-                                LazyVStack(alignment: .leading, spacing: 8) {
-                                    ForEach(releases) { album in
-                                        NavigationLink(value: album) {
-                                            HStack(spacing: 10) {
-                                                AsyncImage(url: album.coverImageURL.flatMap { URL(string: $0) }) { image in
-                                                    image.resizable().aspectRatio(contentMode: .fill)
-                                                } placeholder: {
-                                                    Image(systemName: "opticaldisc")
-                                                        .foregroundStyle(.secondary)
-                                                }
-                                                .frame(width: 40, height: 40)
-                                                .clipShape(RoundedRectangle(cornerRadius: 4))
-
-                                                VStack(alignment: .leading) {
-                                                    Text(album.title)
-                                                        .font(.subheadline)
-                                                        .foregroundStyle(.primary)
-                                                    if let year = album.year {
-                                                        Text(String(year))
-                                                            .font(.caption)
-                                                            .foregroundStyle(.secondary)
-                                                    }
-                                                }
+                                ForEach(grouped, id: \.type) { group in
+                                    ReleaseTypeSection(
+                                        type: group.type,
+                                        albums: group.albums,
+                                        isExpanded: Binding(
+                                            get: { expandedTypes.contains(group.type) },
+                                            set: { newValue in
+                                                if newValue { expandedTypes.insert(group.type) }
+                                                else { expandedTypes.remove(group.type) }
                                             }
-                                            .padding(.vertical, 2)
-                                        }
-                                    }
+                                        )
+                                    )
                                 }
                             }
                         }
@@ -247,6 +234,60 @@ struct ArtistDetailView: View {
             return "Members (\(count))"
         }
         return "Members"
+    }
+}
+
+// MARK: - Release Type Sub-section
+
+private struct ReleaseTypeSection: View {
+    let type: String
+    let albums: [Album]
+    @Binding var isExpanded: Bool
+
+    private var icon: String {
+        switch type {
+        case "Album": return "opticaldisc"
+        case "EP": return "opticaldisc.fill"
+        case "Single": return "music.note"
+        default: return "music.quarternote.3"
+        }
+    }
+
+    var body: some View {
+        DisclosureGroup(isExpanded: $isExpanded) {
+            LazyVStack(alignment: .leading, spacing: 8) {
+                ForEach(albums) { album in
+                    NavigationLink(value: album) {
+                        HStack(spacing: 10) {
+                            AsyncImage(url: album.coverImageURL.flatMap { URL(string: $0) }) { image in
+                                image.resizable().aspectRatio(contentMode: .fill)
+                            } placeholder: {
+                                Image(systemName: "opticaldisc")
+                                    .foregroundStyle(.secondary)
+                            }
+                            .frame(width: 40, height: 40)
+                            .clipShape(RoundedRectangle(cornerRadius: 4))
+
+                            VStack(alignment: .leading) {
+                                Text(album.title)
+                                    .font(.subheadline)
+                                    .foregroundStyle(.primary)
+                                if let year = album.year {
+                                    Text(String(year))
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                            }
+                        }
+                        .padding(.vertical, 2)
+                    }
+                }
+            }
+        } label: {
+            Label("\(type)s (\(albums.count))", systemImage: icon)
+                .font(.subheadline.weight(.medium))
+        }
+        .padding(.vertical, 2)
     }
 }
 
