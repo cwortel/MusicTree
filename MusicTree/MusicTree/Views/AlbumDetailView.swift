@@ -55,6 +55,7 @@ struct AlbumDetailView: View {
 
                 // Add to collection button
                 Button {
+                    guard !showAddedConfirmation else { return }
                     PersistenceService.addToCollection(album: viewModel.album, context: modelContext)
                     withAnimation(.easeInOut(duration: 0.3)) {
                         showAddedConfirmation = true
@@ -75,7 +76,6 @@ struct AlbumDetailView: View {
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(showAddedConfirmation ? .green : .accentColor)
-                .disabled(showAddedConfirmation)
                 .padding(.horizontal)
 
                 // Tracklist
