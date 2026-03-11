@@ -4,6 +4,7 @@ import SwiftData
 struct AlbumDetailView: View {
     @State private var viewModel: AlbumDetailViewModel
     @State private var showImageZoom = false
+    @State private var showAddedConfirmation = false
     @Environment(\.modelContext) private var modelContext
 
     init(album: Album) {
@@ -55,11 +56,23 @@ struct AlbumDetailView: View {
                 // Add to collection button
                 Button {
                     PersistenceService.addToCollection(album: viewModel.album, context: modelContext)
+                    showAddedConfirmation = true
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                        showAddedConfirmation = false
+                    }
                 } label: {
-                    Label("Add to Collection", systemImage: "plus.circle.fill")
-                        .frame(maxWidth: .infinity)
+                    if showAddedConfirmation {
+                        Label("Added to Collection", systemImage: "checkmark.circle.fill")
+                            .frame(maxWidth: .infinity)
+                    } else {
+                        Label("Add to Collection", systemImage: "plus.circle.fill")
+                            .frame(maxWidth: .infinity)
+                    }
                 }
                 .buttonStyle(.borderedProminent)
+                .tint(showAddedConfirmation ? .green : .accentColor)
+                .disabled(showAddedConfirmation)
+                .animation(.easeInOut(duration: 0.25), value: showAddedConfirmation)
                 .padding(.horizontal)
 
                 // Tracklist

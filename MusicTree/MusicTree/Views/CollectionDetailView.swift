@@ -4,6 +4,7 @@ import SwiftData
 struct CollectionDetailView: View {
     @Bindable var item: CollectionItem
     @Environment(\.modelContext) private var modelContext
+    @State private var showImageZoom = false
 
     var body: some View {
         Form {
@@ -19,6 +20,7 @@ struct CollectionDetailView: View {
                     }
                     .frame(height: 200)
                     .clipShape(RoundedRectangle(cornerRadius: 8))
+                    .onTapGesture { showImageZoom = true }
                     Spacer()
                 }
             }
@@ -43,5 +45,13 @@ struct CollectionDetailView: View {
         }
         .navigationTitle(item.albumTitle)
         .navigationBarTitleDisplayMode(.inline)
+        .overlay {
+            if showImageZoom {
+                ZoomableImageOverlay(
+                    url: item.coverImageURL.flatMap { URL(string: $0) },
+                    onDismiss: { showImageZoom = false }
+                )
+            }
+        }
     }
 }
