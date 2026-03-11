@@ -275,7 +275,6 @@ private struct ReleaseRow: View {
     let album: Album
     @Environment(\.modelContext) private var modelContext
     @Query private var collectionItems: [CollectionItem]
-    @State private var justAdded = false
 
     init(album: Album) {
         self.album = album
@@ -285,7 +284,7 @@ private struct ReleaseRow: View {
         })
     }
 
-    private var inCollection: Bool { !collectionItems.isEmpty || justAdded }
+    private var inCollection: Bool { !collectionItems.isEmpty }
 
     var body: some View {
         HStack(spacing: 0) {
@@ -299,10 +298,8 @@ private struct ReleaseRow: View {
                         for item in collectionItems {
                             PersistenceService.delete(item, context: modelContext)
                         }
-                        justAdded = false
                     } else {
                         PersistenceService.addToCollection(album: album, context: modelContext)
-                        justAdded = true
                     }
                 }
             } label: {

@@ -7,10 +7,14 @@ struct AlbumDetailView: View {
     @Query private var collectionItems: [CollectionItem]
     @Environment(\.modelContext) private var modelContext
 
+    /// The original album ID used for collection tracking — stays stable even after loadDetail() replaces the album.
+    private let sourceID: String
+
     private var inCollection: Bool { !collectionItems.isEmpty }
 
     init(album: Album) {
         _viewModel = State(wrappedValue: AlbumDetailViewModel(album: album))
+        self.sourceID = album.id
         let albumID: String? = album.id
         _collectionItems = Query(filter: #Predicate<CollectionItem> { item in
             item.sourceID == albumID
@@ -67,7 +71,26 @@ struct AlbumDetailView: View {
                                 PersistenceService.delete(item, context: modelContext)
                             }
                         } else {
-                            PersistenceService.addToCollection(album: viewModel.album, context: modelContext)
+                            // Use original sourceID so it matches the @Query predicate and ReleaseRow
+                            var albumForCollection = viewModel.album
+                            albumForCollection = Album(
+                                id: sourceID,
+                                title: albumForCollection.title,
+                                artistName: albumForCollection.artistName,
+                                year: albumForCollection.year,
+                                genres: albumForCollection.genres,
+                                styles: albumForCollection.styles,
+                                coverImageURL: albumForCollection.coverImageURL,
+                                tracklist: albumForCollection.tracklist,
+                                credits: albumForCollection.credits,
+                                formats: albumForCollection.formats,
+                                country: albumForCollection.country,
+                                labels: albumForCollection.labels,
+                                discogsID: albumForCollection.discogsID,
+                                musicBrainzID: albumForCollection.musicBrainzID,
+                                sources: albumForCollection.sources
+                            )
+                            PersistenceService.addToCollection(album: albumForCollection, context: modelContext)
                         }
                     }
                 } label: {
