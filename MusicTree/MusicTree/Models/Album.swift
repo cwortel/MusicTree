@@ -18,4 +18,5 @@ struct Album: Identifiable, Codable, Hashable {
     var discogsID: Int?
     var musicBrainzID: String?
     var sources: Set<APISource>
+    var isReleaseGroup: Bool = false
 }

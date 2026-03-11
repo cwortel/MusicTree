@@ -25,7 +25,11 @@ final class AlbumDetailViewModel {
             if let discogsID = album.discogsID {
                 album = try await discogs.getRelease(id: discogsID)
             } else if let mbid = album.musicBrainzID {
-                album = try await musicBrainz.getRelease(mbid: mbid)
+                if album.isReleaseGroup {
+                    album = try await musicBrainz.getReleaseGroupDetail(rgid: mbid)
+                } else {
+                    album = try await musicBrainz.getRelease(mbid: mbid)
+                }
             }
         } catch {
             errorMessage = error.localizedDescription

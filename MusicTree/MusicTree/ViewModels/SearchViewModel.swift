@@ -24,22 +24,20 @@ final class SearchViewModel {
         artists = []
         albums = []
 
-        do {
-            switch searchType {
-            case .artists:
-                async let da = discogs.searchArtists(query: trimmed)
-                async let ma = musicBrainz.searchArtists(query: trimmed)
-                let (discogsArtists, mbArtists) = try await (da, ma)
-                artists = SearchMerger.mergeArtists(discogs: discogsArtists, musicBrainz: mbArtists)
+        switch searchType {
+        case .artists:
+            async let da = { try await discogs.searchArtists(query: trimmed) }()
+            async let ma = { try await musicBrainz.searchArtists(query: trimmed) }()
+            let discogsArtists = (try? await da) ?? []
+            let mbArtists = (try? await ma) ?? []
+            artists = SearchMerger.mergeArtists(discogs: discogsArtists, musicBrainz: mbArtists)
 
-            case .releases:
-                async let dr = discogs.searchReleases(query: trimmed)
-                async let mr = musicBrainz.searchReleases(query: trimmed)
-                let (discogsReleases, mbReleases) = try await (dr, mr)
-                albums = SearchMerger.mergeAlbums(discogs: discogsReleases, musicBrainz: mbReleases)
-            }
-        } catch {
-            errorMessage = error.localizedDescription
+        case .releases:
+            async let dr = { try await discogs.searchReleases(query: trimmed) }()
+            async let mr = { try await musicBrainz.searchReleases(query: trimmed) }()
+            let discogsReleases = (try? await dr) ?? []
+            let mbReleases = (try? await mr) ?? []
+            albums = SearchMerger.mergeAlbums(discogs: discogsReleases, musicBrainz: mbReleases)
         }
 
         isLoading = false

@@ -67,30 +67,33 @@ final class ArtistDetailViewModel {
         isLoading = false
     }
 
-    /// Lazy-load releases when the section is expanded
+    /// Lazy-load releases — MusicBrainz release-groups first (clean discography),
+    /// Discogs as fallback only if MB has nothing or fails.
     func loadReleasesIfNeeded() async {
         guard releases == nil, !isLoadingReleases else { return }
         isLoadingReleases = true
 
-        do {
-            var allReleases: [Album] = []
-
-            if let discogsID = artist.discogsID {
-                let dReleases = try await discogs.getArtistReleases(id: discogsID)
-                allReleases.append(contentsOf: dReleases)
+        // Try MusicBrainz first — release-groups give deduplicated albums
+        var mbReleases: [Album] = []
+        if let mbid = artist.musicBrainzID {
+            do {
+                mbReleases = try await musicBrainz.getArtistReleaseGroups(mbid: mbid)
+            } catch {
+                // MB failed, will fall back to Discogs
             }
+        }
 
-            if let mbid = artist.musicBrainzID {
-                let mbReleases = try await musicBrainz.getArtistReleaseGroups(mbid: mbid)
-                if allReleases.isEmpty {
-                    allReleases = mbReleases
-                } else {
-                    allReleases = SearchMerger.mergeAlbums(discogs: allReleases, musicBrainz: mbReleases)
-                }
+        if !mbReleases.isEmpty {
+            releases = mbReleases.sorted { ($0.year ?? 0) > ($1.year ?? 0) }
+        } else if let discogsID = artist.discogsID {
+            // Fallback: Discogs releases (noisier but better than nothing)
+            do {
+                releases = try await discogs.getArtistReleases(id: discogsID)
+                    .sorted { ($0.year ?? 0) > ($1.year ?? 0) }
+            } catch {
+                releases = []
             }
-
-            releases = allReleases
-        } catch {
+        } else {
             releases = []
         }
 

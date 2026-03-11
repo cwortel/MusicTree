@@ -19,9 +19,10 @@ struct Artist: Identifiable, Codable, Hashable {
 
     /// Members of the band (from MusicBrainz relations)
     struct Member: Codable, Hashable, Identifiable {
-        var id: String { name }
+        var id: String { musicBrainzID ?? name }
         let name: String
-        let instrument: String?
+        let musicBrainzID: String?
+        let instruments: [String]
         let active: Bool
     }
 }

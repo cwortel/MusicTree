@@ -144,26 +144,32 @@ struct ArtistDetailView: View {
                             } else {
                                 VStack(alignment: .leading, spacing: 6) {
                                     ForEach(members) { member in
-                                        HStack {
-                                            Image(systemName: member.active ? "person.fill" : "person")
-                                                .foregroundStyle(member.active ? .primary : .secondary)
-                                            VStack(alignment: .leading) {
-                                                Text(member.name)
-                                                    .font(.subheadline)
-                                                if let instrument = member.instrument, !instrument.isEmpty {
-                                                    Text(instrument)
-                                                        .font(.caption)
-                                                        .foregroundStyle(.secondary)
+                                        NavigationLink(value: member) {
+                                            HStack {
+                                                Image(systemName: member.active ? "person.fill" : "person")
+                                                    .foregroundStyle(member.active ? .primary : .secondary)
+                                                VStack(alignment: .leading) {
+                                                    Text(member.name)
+                                                        .font(.subheadline)
+                                                    if !member.instruments.isEmpty {
+                                                        Text(member.instruments.joined(separator: " \u{00B7} "))
+                                                            .font(.caption)
+                                                            .foregroundStyle(.secondary)
+                                                    }
                                                 }
-                                            }
-                                            Spacer()
-                                            if !member.active {
-                                                Text("past")
-                                                    .font(.caption2)
+                                                Spacer()
+                                                if !member.active {
+                                                    Text("past")
+                                                        .font(.caption2)
+                                                        .foregroundStyle(.tertiary)
+                                                }
+                                                Image(systemName: "chevron.right")
+                                                    .font(.caption)
                                                     .foregroundStyle(.tertiary)
                                             }
+                                            .padding(.vertical, 2)
                                         }
-                                        .padding(.vertical, 2)
+                                        .buttonStyle(.plain)
                                     }
                                 }
                             }
@@ -201,6 +207,20 @@ struct ArtistDetailView: View {
         .navigationBarTitleDisplayMode(.inline)
         .navigationDestination(for: Album.self) { album in
             AlbumDetailView(album: album)
+        }
+        .navigationDestination(for: Artist.Member.self) { member in
+            ArtistDetailView(artist: Artist(
+                id: member.musicBrainzID.map { "mb-\($0)" } ?? member.name,
+                name: member.name,
+                sortName: nil,
+                disambiguation: nil,
+                profile: nil,
+                imageURL: nil,
+                urls: nil,
+                discogsID: nil,
+                musicBrainzID: member.musicBrainzID,
+                sources: member.musicBrainzID != nil ? [.musicBrainz] : []
+            ))
         }
         .overlay {
             if showImageZoom {

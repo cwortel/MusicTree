@@ -116,7 +116,8 @@ final class MusicBrainzService {
                 labels: nil,
                 discogsID: nil,
                 musicBrainzID: rg.id,
-                sources: [.musicBrainz]
+                sources: [.musicBrainz],
+                isReleaseGroup: true
             )
         }
     }
@@ -129,25 +130,27 @@ final class MusicBrainzService {
 
         let response: MBArtistWithRels = try await client.get(url, headers: headers)
 
-        // Collect all relations per member, then pick the primary instrument
-        var memberData: [String: (attributes: [String], active: Bool)] = [:]
+        // Collect all relations per member, then aggregate instruments
+        var memberData: [String: (mbid: String?, attributes: [String], active: Bool)] = [:]
         for rel in response.relations ?? [] {
             guard rel.type == "member of band",
                   let targetName = rel.artist?.name else { continue }
             let attrs = rel.attributes ?? []
             let active = !(rel.ended ?? false)
+            let mbid = rel.artist?.id
             if var existing = memberData[targetName] {
                 existing.attributes.append(contentsOf: attrs)
                 if active { existing.active = true }
+                if existing.mbid == nil { existing.mbid = mbid }
                 memberData[targetName] = existing
             } else {
-                memberData[targetName] = (attributes: attrs, active: active)
+                memberData[targetName] = (mbid: mbid, attributes: attrs, active: active)
             }
         }
 
         return memberData.map { name, data in
-            let primary = Self.primaryInstrument(from: data.attributes)
-            return Artist.Member(name: name, instrument: primary, active: data.active)
+            let cleaned = Self.cleanInstruments(from: data.attributes)
+            return Artist.Member(name: name, musicBrainzID: data.mbid, instruments: cleaned, active: data.active)
         }.sorted { $0.name < $1.name }
     }
 
@@ -193,35 +196,50 @@ final class MusicBrainzService {
 
     // MARK: - Helpers
 
-    /// Pick the most representative instrument/role from a list of MusicBrainz attributes.
-    /// Core instruments rank above secondary roles like "backing vocals".
-    private static func primaryInstrument(from attributes: [String]) -> String? {
-        guard !attributes.isEmpty else { return nil }
-        let unique = Array(Set(attributes.map { $0.lowercased() }))
-        if unique.count == 1 { return attributes.first }
-
+    /// Clean and deduplicate instrument attributes, returning them sorted with core instruments first.
+    private static func cleanInstruments(from attributes: [String]) -> [String] {
+        guard !attributes.isEmpty else { return [] }
+        // Deduplicate case-insensitively, keep original casing
+        var seen = Set<String>()
+        var unique: [String] = []
+        for attr in attributes {
+            let lower = attr.lowercased()
+            if !seen.contains(lower) {
+                seen.insert(lower)
+                unique.append(attr)
+            }
+        }
         let coreKeywords = ["vocals", "guitar", "bass guitar", "drums",
                             "keyboard", "keyboards", "piano", "synthesizer",
                             "lead vocals", "bass", "lead guitar", "rhythm guitar"]
-        let secondaryKeywords = ["backing vocals", "percussion", "additional",
-                                 "programming", "samples"]
+        // Sort: core instruments first
+        return unique.sorted { a, b in
+            let aCore = coreKeywords.contains(where: { a.lowercased().contains($0) })
+            let bCore = coreKeywords.contains(where: { b.lowercased().contains($0) })
+            if aCore != bCore { return aCore }
+            return a < b
+        }
+    }
 
-        // Prefer a core match
-        for attr in attributes {
-            let lower = attr.lowercased()
-            if coreKeywords.contains(where: { lower.contains($0) }) &&
-               !secondaryKeywords.contains(where: { lower == $0 }) {
-                return attr
-            }
+    /// Fetch the first official release ID from a release-group, then load full release detail.
+    func getReleaseGroupDetail(rgid: String) async throws -> Album {
+        guard let url = buildURL(path: "/release-group/\(rgid)", queryItems: [
+            URLQueryItem(name: "fmt", value: "json"),
+            URLQueryItem(name: "inc", value: "releases")
+        ]) else {
+            throw NetworkError.invalidResponse
         }
-        // Fall back to first non-secondary
-        for attr in attributes {
-            let lower = attr.lowercased()
-            if !secondaryKeywords.contains(where: { lower == $0 }) {
-                return attr
-            }
+
+        let response: MBReleaseGroupDetail = try await client.get(url, headers: headers)
+        // Prefer an "Official" release, fall back to first available
+        let releaseID = response.releases?
+            .first(where: { $0.status == "Official" })?.id
+            ?? response.releases?.first?.id
+
+        guard let rid = releaseID else {
+            throw NetworkError.invalidResponse
         }
-        return attributes.first
+        return try await getRelease(mbid: rid)
     }
 
     private func buildURL(path: String, queryItems: [URLQueryItem] = []) -> URL? {
@@ -251,6 +269,11 @@ struct MBArtistResult: Decodable {
     let name: String
     let sortName: String?
     let disambiguation: String?
+
+    enum CodingKeys: String, CodingKey {
+        case id, name, disambiguation
+        case sortName = "sort-name"
+    }
 }
 
 struct MBBrowseReleasesResponse: Decodable {
@@ -263,6 +286,11 @@ struct MBReleaseResult: Decodable {
     let date: String?
     let country: String?
     let artistCredit: [MBArtistCredit]?
+
+    enum CodingKeys: String, CodingKey {
+        case id, title, date, country
+        case artistCredit = "artist-credit"
+    }
 }
 
 struct MBArtistCredit: Decodable {
@@ -276,6 +304,11 @@ struct MBArtistDetail: Decodable {
     let disambiguation: String?
     let type: String?
     let relations: [MBRelation]?
+
+    enum CodingKeys: String, CodingKey {
+        case id, name, disambiguation, type, relations
+        case sortName = "sort-name"
+    }
 }
 
 struct MBRelation: Decodable {
@@ -294,6 +327,11 @@ struct MBReleaseDetail: Decodable {
     let country: String?
     let artistCredit: [MBArtistCredit]?
     let media: [MBMedium]?
+
+    enum CodingKeys: String, CodingKey {
+        case id, title, date, country, media
+        case artistCredit = "artist-credit"
+    }
 }
 
 struct MBMedium: Decodable {
@@ -314,6 +352,10 @@ struct MBRecording: Decodable {
 
 struct MBReleaseGroupResponse: Decodable {
     let releaseGroups: [MBReleaseGroup]
+
+    enum CodingKeys: String, CodingKey {
+        case releaseGroups = "release-groups"
+    }
 }
 
 struct MBReleaseGroup: Decodable {
@@ -321,6 +363,12 @@ struct MBReleaseGroup: Decodable {
     let title: String
     let primaryType: String?
     let firstReleaseDate: String?
+
+    enum CodingKeys: String, CodingKey {
+        case id, title
+        case primaryType = "primary-type"
+        case firstReleaseDate = "first-release-date"
+    }
 }
 
 struct MBArtistWithRels: Decodable {
@@ -339,4 +387,15 @@ struct MBArtistRelation: Decodable {
 struct MBArtistRef: Decodable {
     let id: String
     let name: String
+}
+
+struct MBReleaseGroupDetail: Decodable {
+    let id: String
+    let title: String
+    let releases: [MBReleaseGroupRelease]?
+}
+
+struct MBReleaseGroupRelease: Decodable {
+    let id: String
+    let status: String?
 }
