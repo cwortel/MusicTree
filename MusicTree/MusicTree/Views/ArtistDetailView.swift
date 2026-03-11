@@ -295,28 +295,7 @@ private struct ReleaseRow: View {
     var body: some View {
         HStack(spacing: 0) {
             NavigationLink(value: album) {
-                HStack(spacing: 10) {
-                    AsyncImage(url: album.coverImageURL.flatMap { URL(string: $0) }) { image in
-                        image.resizable().aspectRatio(contentMode: .fill)
-                    } placeholder: {
-                        Image(systemName: "opticaldisc")
-                            .foregroundStyle(.secondary)
-                    }
-                    .frame(width: 40, height: 40)
-                    .clipShape(RoundedRectangle(cornerRadius: 4))
-
-                    VStack(alignment: .leading) {
-                        Text(album.title)
-                            .font(.subheadline)
-                            .foregroundStyle(.primary)
-                        if let year = album.year {
-                            Text(String(year))
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                }
-                .padding(.vertical, 2)
+                releaseLabel
             }
             Spacer()
             Button(action: onAdd) {
@@ -327,6 +306,31 @@ private struct ReleaseRow: View {
             }
             .buttonStyle(.plain)
         }
+    }
+
+    private var releaseLabel: some View {
+        HStack(spacing: 10) {
+            AsyncImage(url: album.coverImageURL.flatMap { URL(string: $0) }) { image in
+                image.resizable().aspectRatio(contentMode: .fill)
+            } placeholder: {
+                Image(systemName: "opticaldisc")
+                    .foregroundStyle(.secondary)
+            }
+            .frame(width: 40, height: 40)
+            .clipShape(RoundedRectangle(cornerRadius: 4))
+
+            VStack(alignment: .leading) {
+                Text(album.title)
+                    .font(.subheadline)
+                    .foregroundStyle(.primary)
+                if let year = album.year {
+                    Text(String(year))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+        }
+        .padding(.vertical, 2)
     }
 }
 
