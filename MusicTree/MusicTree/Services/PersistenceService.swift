@@ -16,6 +16,8 @@ final class PersistenceService {
             year: album.year,
             coverImageURL: album.coverImageURL,
             genres: album.genres ?? [],
+            labels: album.labels ?? [],
+            formats: album.formats ?? [],
             notes: notes,
             sourceID: album.id,
             source: album.sources.map(\.rawValue).joined(separator: ",")

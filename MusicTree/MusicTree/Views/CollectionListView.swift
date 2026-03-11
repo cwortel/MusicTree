@@ -5,6 +5,7 @@ struct CollectionListView: View {
     @Query(sort: \CollectionItem.dateAdded, order: .reverse) private var items: [CollectionItem]
     @State private var viewModel = CollectionViewModel()
     @Environment(\.modelContext) private var modelContext
+    @State private var expandedSections: Set<String> = []
 
     var filteredItems: [CollectionItem] {
         if viewModel.searchText.isEmpty {
@@ -25,7 +26,7 @@ struct CollectionListView: View {
                         systemImage: "music.note.list",
                         description: Text("Search for albums and add them to your collection.")
                     )
-                } else {
+                } else if viewModel.groupBy == .none {
                     List {
                         ForEach(filteredItems) { item in
                             NavigationLink {
@@ -41,9 +42,62 @@ struct CollectionListView: View {
                         }
                     }
                     .searchable(text: $viewModel.searchText, prompt: "Filter collection…")
+                } else {
+                    List {
+                        ForEach(viewModel.groupedItems(filteredItems), id: \.key) { group in
+                            Section(isExpanded: Binding(
+                                get: { expandedSections.contains(group.key) },
+                                set: { newValue in
+                                    if newValue { expandedSections.insert(group.key) }
+                                    else { expandedSections.remove(group.key) }
+                                }
+                            )) {
+                                ForEach(group.items) { item in
+                                    NavigationLink {
+                                        CollectionDetailView(item: item)
+                                    } label: {
+                                        CollectionItemRow(item: item)
+                                    }
+                                }
+                                .onDelete { indexSet in
+                                    for index in indexSet {
+                                        viewModel.deleteItem(group.items[index], context: modelContext)
+                                    }
+                                }
+                            } header: {
+                                Text("\(group.key) (\(group.items.count))")
+                            }
+                        }
+                    }
+                    .searchable(text: $viewModel.searchText, prompt: "Filter collection…")
                 }
             }
             .navigationTitle("Collection")
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Menu {
+                        ForEach(CollectionGroupBy.allCases) { option in
+                            Button {
+                                withAnimation {
+                                    viewModel.groupBy = option
+                                    if option != .none {
+                                        // Expand all sections initially
+                                        let groups = viewModel.groupedItems(filteredItems)
+                                        expandedSections = Set(groups.map(\.key))
+                                    }
+                                }
+                            } label: {
+                                Label(option.rawValue, systemImage: option.icon)
+                                if viewModel.groupBy == option {
+                                    Image(systemName: "checkmark")
+                                }
+                            }
+                        }
+                    } label: {
+                        Image(systemName: "line.3.horizontal.decrease.circle")
+                    }
+                }
+            }
         }
     }
 }
