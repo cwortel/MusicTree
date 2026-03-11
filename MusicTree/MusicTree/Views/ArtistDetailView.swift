@@ -243,8 +243,6 @@ private struct ReleaseTypeSection: View {
     let type: String
     let albums: [Album]
     @Binding var isExpanded: Bool
-    @Environment(\.modelContext) private var modelContext
-    @State private var addedIDs: Set<String> = []
 
     private var icon: String {
         switch type {
@@ -259,22 +257,7 @@ private struct ReleaseTypeSection: View {
         DisclosureGroup(isExpanded: $isExpanded) {
             LazyVStack(alignment: .leading, spacing: 8) {
                 ForEach(albums) { album in
-                    ReleaseRow(
-                        album: album,
-                        isAdded: addedIDs.contains(album.id),
-                        onAdd: {
-                            guard !addedIDs.contains(album.id) else { return }
-                            PersistenceService.addToCollection(album: album, context: modelContext)
-                            withAnimation(.easeInOut(duration: 0.3)) {
-                                addedIDs.insert(album.id)
-                            }
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
-                                withAnimation(.easeInOut(duration: 0.4)) {
-                                    addedIDs.remove(album.id)
-                                }
-                            }
-                        }
-                    )
+                    ReleaseRow(album: album)
                 }
             }
         } label: {
@@ -289,8 +272,8 @@ private struct ReleaseTypeSection: View {
 
 private struct ReleaseRow: View {
     let album: Album
-    let isAdded: Bool
-    let onAdd: () -> Void
+    @Environment(\.modelContext) private var modelContext
+    @State private var isAdded = false
 
     var body: some View {
         HStack(spacing: 0) {
@@ -298,7 +281,18 @@ private struct ReleaseRow: View {
                 releaseLabel
             }
             Spacer()
-            Button(action: onAdd) {
+            Button {
+                guard !isAdded else { return }
+                PersistenceService.addToCollection(album: album, context: modelContext)
+                withAnimation(.easeInOut(duration: 0.3)) {
+                    isAdded = true
+                }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                    withAnimation(.easeInOut(duration: 0.4)) {
+                        isAdded = false
+                    }
+                }
+            } label: {
                 Image(systemName: isAdded ? "checkmark.circle.fill" : "plus.circle")
                     .font(.title3)
                     .foregroundStyle(isAdded ? .green : .secondary)
