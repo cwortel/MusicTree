@@ -294,10 +294,16 @@ private struct ReleaseRow: View {
             }
             Spacer()
             Button {
-                guard !inCollection else { return }
-                PersistenceService.addToCollection(album: album, context: modelContext)
                 withAnimation(.easeInOut(duration: 0.3)) {
-                    justAdded = true
+                    if inCollection {
+                        for item in collectionItems {
+                            PersistenceService.delete(item, context: modelContext)
+                        }
+                        justAdded = false
+                    } else {
+                        PersistenceService.addToCollection(album: album, context: modelContext)
+                        justAdded = true
+                    }
                 }
             } label: {
                 Image(systemName: inCollection ? "checkmark.circle.fill" : "plus.circle")

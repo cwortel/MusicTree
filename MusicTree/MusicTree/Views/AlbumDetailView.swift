@@ -4,11 +4,17 @@ import SwiftData
 struct AlbumDetailView: View {
     @State private var viewModel: AlbumDetailViewModel
     @State private var showImageZoom = false
-    @State private var showAddedConfirmation = false
+    @Query private var collectionItems: [CollectionItem]
     @Environment(\.modelContext) private var modelContext
+
+    private var inCollection: Bool { !collectionItems.isEmpty }
 
     init(album: Album) {
         _viewModel = State(wrappedValue: AlbumDetailViewModel(album: album))
+        let albumID: String? = album.id
+        _collectionItems = Query(filter: #Predicate<CollectionItem> { item in
+            item.sourceID == albumID
+        })
     }
 
     var body: some View {
@@ -53,29 +59,28 @@ struct AlbumDetailView: View {
                 }
                 .padding(.horizontal)
 
-                // Add to collection button
+                // Add to / remove from collection button
                 Button {
-                    guard !showAddedConfirmation else { return }
-                    PersistenceService.addToCollection(album: viewModel.album, context: modelContext)
                     withAnimation(.easeInOut(duration: 0.3)) {
-                        showAddedConfirmation = true
-                    }
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
-                        withAnimation(.easeInOut(duration: 0.4)) {
-                            showAddedConfirmation = false
+                        if inCollection {
+                            for item in collectionItems {
+                                PersistenceService.delete(item, context: modelContext)
+                            }
+                        } else {
+                            PersistenceService.addToCollection(album: viewModel.album, context: modelContext)
                         }
                     }
                 } label: {
                     HStack(spacing: 8) {
-                        Image(systemName: showAddedConfirmation ? "checkmark.circle.fill" : "plus.circle.fill")
+                        Image(systemName: inCollection ? "checkmark.circle.fill" : "plus.circle.fill")
                             .contentTransition(.symbolEffect(.replace))
-                        Text(showAddedConfirmation ? "Saved!" : "Add to Collection")
+                        Text(inCollection ? "In Collection" : "Add to Collection")
                             .fontWeight(.semibold)
                     }
                     .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.borderedProminent)
-                .tint(showAddedConfirmation ? .green : .accentColor)
+                .tint(inCollection ? .green : .accentColor)
                 .padding(.horizontal)
 
                 // Tracklist
