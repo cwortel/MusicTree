@@ -259,33 +259,10 @@ private struct ReleaseTypeSection: View {
         DisclosureGroup(isExpanded: $isExpanded) {
             LazyVStack(alignment: .leading, spacing: 8) {
                 ForEach(albums) { album in
-                    HStack(spacing: 0) {
-                        NavigationLink(value: album) {
-                            HStack(spacing: 10) {
-                                AsyncImage(url: album.coverImageURL.flatMap { URL(string: $0) }) { image in
-                                    image.resizable().aspectRatio(contentMode: .fill)
-                                } placeholder: {
-                                    Image(systemName: "opticaldisc")
-                                        .foregroundStyle(.secondary)
-                                }
-                                .frame(width: 40, height: 40)
-                                .clipShape(RoundedRectangle(cornerRadius: 4))
-
-                                VStack(alignment: .leading) {
-                                    Text(album.title)
-                                        .font(.subheadline)
-                                        .foregroundStyle(.primary)
-                                    if let year = album.year {
-                                        Text(String(year))
-                                            .font(.caption)
-                                            .foregroundStyle(.secondary)
-                                    }
-                                }
-                            }
-                            .padding(.vertical, 2)
-                        }
-                        Spacer()
-                        Button {
+                    ReleaseRow(
+                        album: album,
+                        isAdded: addedIDs.contains(album.id),
+                        onAdd: {
                             guard !addedIDs.contains(album.id) else { return }
                             PersistenceService.addToCollection(album: album, context: modelContext)
                             withAnimation(.easeInOut(duration: 0.3)) {
@@ -296,14 +273,8 @@ private struct ReleaseTypeSection: View {
                                     addedIDs.remove(album.id)
                                 }
                             }
-                        } label: {
-                            Image(systemName: addedIDs.contains(album.id) ? "checkmark.circle.fill" : "plus.circle")
-                                .font(.title3)
-                                .foregroundStyle(addedIDs.contains(album.id) ? .green : .secondary)
-                                .contentTransition(.symbolEffect(.replace))
                         }
-                        .buttonStyle(.plain)
-                    }
+                    )
                 }
             }
         } label: {
@@ -311,6 +282,51 @@ private struct ReleaseTypeSection: View {
                 .font(.subheadline.weight(.medium))
         }
         .padding(.vertical, 2)
+    }
+}
+
+// MARK: - Release Row with quick-add button
+
+private struct ReleaseRow: View {
+    let album: Album
+    let isAdded: Bool
+    let onAdd: () -> Void
+
+    var body: some View {
+        HStack(spacing: 0) {
+            NavigationLink(value: album) {
+                HStack(spacing: 10) {
+                    AsyncImage(url: album.coverImageURL.flatMap { URL(string: $0) }) { image in
+                        image.resizable().aspectRatio(contentMode: .fill)
+                    } placeholder: {
+                        Image(systemName: "opticaldisc")
+                            .foregroundStyle(.secondary)
+                    }
+                    .frame(width: 40, height: 40)
+                    .clipShape(RoundedRectangle(cornerRadius: 4))
+
+                    VStack(alignment: .leading) {
+                        Text(album.title)
+                            .font(.subheadline)
+                            .foregroundStyle(.primary)
+                        if let year = album.year {
+                            Text(String(year))
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                }
+                .padding(.vertical, 2)
+            }
+            Spacer()
+            Button(action: onAdd) {
+                Image(systemName: isAdded ? "checkmark.circle.fill" : "plus.circle")
+                    .font(.title3)
+                    .foregroundStyle(isAdded ? .green : .secondary)
+                    .contentTransition(.symbolEffect(.replace))
+            }
+            .buttonStyle(.plain)
+        }
     }
 }
 
