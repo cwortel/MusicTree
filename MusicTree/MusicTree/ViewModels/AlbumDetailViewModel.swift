@@ -20,6 +20,8 @@ final class AlbumDetailViewModel {
         isLoading = true
         errorMessage = nil
 
+        let originalArtistName = album.artistName
+
         do {
             // Prefer Discogs for credits
             if let discogsID = album.discogsID {
@@ -30,6 +32,26 @@ final class AlbumDetailViewModel {
                 } else {
                     album = try await musicBrainz.getRelease(mbid: mbid)
                 }
+            }
+            // Preserve artist name if API returned empty
+            if album.artistName.isEmpty && !originalArtistName.isEmpty {
+                album = Album(
+                    id: album.id,
+                    title: album.title,
+                    artistName: originalArtistName,
+                    year: album.year,
+                    genres: album.genres,
+                    styles: album.styles,
+                    coverImageURL: album.coverImageURL,
+                    tracklist: album.tracklist,
+                    credits: album.credits,
+                    formats: album.formats,
+                    country: album.country,
+                    labels: album.labels,
+                    discogsID: album.discogsID,
+                    musicBrainzID: album.musicBrainzID,
+                    sources: album.sources
+                )
             }
         } catch {
             errorMessage = error.localizedDescription

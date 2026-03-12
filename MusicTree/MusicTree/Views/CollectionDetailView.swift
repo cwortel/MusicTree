@@ -38,6 +38,33 @@ struct CollectionDetailView: View {
                 LabeledContent("Added", value: item.dateAdded.formatted(date: .abbreviated, time: .omitted))
             }
 
+            if let sourceID = item.sourceID {
+                Section {
+                    NavigationLink {
+                        AlbumDetailView(album: Album(
+                            id: sourceID,
+                            title: item.albumTitle,
+                            artistName: item.artistName,
+                            year: item.year,
+                            genres: item.genres.isEmpty ? nil : item.genres,
+                            styles: nil,
+                            coverImageURL: item.coverImageURL,
+                            tracklist: nil,
+                            credits: nil,
+                            formats: item.formats.isEmpty ? nil : item.formats,
+                            country: nil,
+                            labels: item.labels.isEmpty ? nil : item.labels,
+                            discogsID: sourceID.hasPrefix("discogs-") ? Int(sourceID.dropFirst(8)) : nil,
+                            musicBrainzID: sourceID.hasPrefix("mb-") ? String(sourceID.dropFirst(3)) : nil,
+                            sources: sourceID.hasPrefix("mb-") ? [.musicBrainz] : [.discogs],
+                            isReleaseGroup: sourceID.hasPrefix("mb-")
+                        ))
+                    } label: {
+                        Label("View Full Release", systemImage: "music.note.list")
+                    }
+                }
+            }
+
             Section("Notes") {
                 TextEditor(text: $item.notes)
                     .frame(minHeight: 100)

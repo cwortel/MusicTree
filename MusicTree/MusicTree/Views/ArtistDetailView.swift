@@ -130,34 +130,22 @@ struct ArtistDetailView: View {
                                     .foregroundStyle(.secondary)
                                     .padding(.vertical, 4)
                             } else {
-                                VStack(alignment: .leading, spacing: 6) {
-                                    ForEach(members) { member in
-                                        NavigationLink(value: member) {
-                                            HStack {
-                                                Image(systemName: member.active ? "person.fill" : "person")
-                                                    .foregroundStyle(member.active ? .primary : .secondary)
-                                                VStack(alignment: .leading) {
-                                                    Text(member.name)
-                                                        .font(.subheadline)
-                                                    if !member.instruments.isEmpty {
-                                                        Text(member.instruments.joined(separator: " \u{00B7} "))
-                                                            .font(.caption)
-                                                            .foregroundStyle(.secondary)
-                                                    }
-                                                }
-                                                Spacer()
-                                                if !member.active {
-                                                    Text("past")
-                                                        .font(.caption2)
-                                                        .foregroundStyle(.tertiary)
-                                                }
-                                                Image(systemName: "chevron.right")
-                                                    .font(.caption)
-                                                    .foregroundStyle(.tertiary)
-                                            }
-                                            .padding(.vertical, 2)
-                                        }
-                                        .buttonStyle(.plain)
+                                let current = members.filter(\.active)
+                                let former = members.filter { !$0.active }
+                                VStack(alignment: .leading, spacing: 10) {
+                                    if !current.isEmpty {
+                                        Text("Current")
+                                            .font(.caption.weight(.semibold))
+                                            .foregroundStyle(.secondary)
+                                            .textCase(.uppercase)
+                                        MemberList(members: current)
+                                    }
+                                    if !former.isEmpty {
+                                        Text("Former")
+                                            .font(.caption.weight(.semibold))
+                                            .foregroundStyle(.secondary)
+                                            .textCase(.uppercase)
+                                        MemberList(members: former)
                                     }
                                 }
                             }
@@ -335,6 +323,40 @@ private struct ReleaseRow: View {
             }
         }
         .padding(.vertical, 2)
+    }
+}
+
+// MARK: - Member List (reusable for current/former sections)
+
+private struct MemberList: View {
+    let members: [Artist.Member]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            ForEach(members) { member in
+                NavigationLink(value: member) {
+                    HStack {
+                        Image(systemName: member.active ? "person.fill" : "person")
+                            .foregroundStyle(member.active ? .primary : .secondary)
+                        VStack(alignment: .leading) {
+                            Text(member.name)
+                                .font(.subheadline)
+                            if !member.instruments.isEmpty {
+                                Text(member.instruments.joined(separator: " \u{00B7} "))
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                            .font(.caption)
+                            .foregroundStyle(.tertiary)
+                    }
+                    .padding(.vertical, 2)
+                }
+                .buttonStyle(.plain)
+            }
+        }
     }
 }
 

@@ -7,21 +7,21 @@ extension String {
     }
 
     /// Strip Discogs proprietary markup and return plain readable text.
-    /// Handles: [a=Name], [l=Name], [r=Name], [a12345], [l12345], [r12345],
+    /// Handles: [a=Name], [l=Name], [r=Name], [m=Name], [a12345], [l12345], etc.,
     /// [url=...]text[/url], [b]...[/b], [i]...[/i]
     var strippingDiscogsMarkup: String {
         var text = self
 
-        // [a=Artist Name] / [l=Label Name] / [r=Release Name] → extract the name
+        // [a=Artist Name] / [l=Label Name] / [r=Release Name] / [m=Master] → extract the name
         text = text.replacingOccurrences(
-            of: #"\[[alr]=([^\]]+)\]"#,
+            of: #"\[[alrmg]=([^\]]+)\]"#,
             with: "$1",
             options: .regularExpression
         )
 
-        // [a12345] / [l12345] / [r12345] (numeric ID only) → remove entirely
+        // [a12345] / [l12345] / [r12345] / [m12345] (numeric ID only, unresolved) → remove
         text = text.replacingOccurrences(
-            of: #"\[[alr]\d+\]"#,
+            of: #"\[[alrmg]\d+\]"#,
             with: "",
             options: .regularExpression
         )
@@ -37,6 +37,33 @@ extension String {
         text = text.replacingOccurrences(
             of: #"\[/?[bi]\]"#,
             with: "",
+            options: .regularExpression
+        )
+
+        // Clean up leftover punctuation artifacts from removed references
+        text = text.replacingOccurrences(
+            of: #"(,\s*){2,}"#,
+            with: ", ",
+            options: .regularExpression
+        )
+        text = text.replacingOccurrences(
+            of: #"\bof\s*,\s*"#,
+            with: "of ",
+            options: .regularExpression
+        )
+        text = text.replacingOccurrences(
+            of: #",\s*(and|&)\s*\."#,
+            with: ".",
+            options: .regularExpression
+        )
+        text = text.replacingOccurrences(
+            of: #",\s*\."#,
+            with: ".",
+            options: .regularExpression
+        )
+        text = text.replacingOccurrences(
+            of: #"\s{2,}"#,
+            with: " ",
             options: .regularExpression
         )
 

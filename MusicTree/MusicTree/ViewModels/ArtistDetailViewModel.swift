@@ -46,12 +46,17 @@ final class ArtistDetailViewModel {
             // Prefer Discogs for profile/bio
             if let discogsID = artist.discogsID {
                 let detailed = try await discogs.getArtist(id: discogsID)
+                // Resolve [aNNNNN] ID-only references in the profile text
+                var resolvedProfile = detailed.profile
+                if let profile = detailed.profile, profile.contains("[a") {
+                    resolvedProfile = await discogs.resolveProfileMarkup(profile)
+                }
                 artist = Artist(
                     id: artist.id,
                     name: detailed.name,
                     sortName: detailed.sortName ?? artist.sortName,
                     disambiguation: artist.disambiguation ?? detailed.disambiguation,
-                    profile: detailed.profile,
+                    profile: resolvedProfile,
                     imageURL: detailed.imageURL ?? artist.imageURL,
                     urls: detailed.urls ?? artist.urls,
                     discogsID: artist.discogsID,
@@ -122,7 +127,27 @@ final class ArtistDetailViewModel {
         } else if let discogsID = artist.discogsID {
             // Fallback: Discogs releases (noisier but better than nothing)
             do {
+                let artistName = artist.name
                 releases = try await discogs.getArtistReleases(id: discogsID)
+                    .map { album in
+                        Album(
+                            id: album.id,
+                            title: album.title,
+                            artistName: album.artistName.isEmpty ? artistName : album.artistName,
+                            year: album.year,
+                            genres: album.genres,
+                            styles: album.styles,
+                            coverImageURL: album.coverImageURL,
+                            tracklist: album.tracklist,
+                            credits: album.credits,
+                            formats: album.formats,
+                            country: album.country,
+                            labels: album.labels,
+                            discogsID: album.discogsID,
+                            musicBrainzID: album.musicBrainzID,
+                            sources: album.sources
+                        )
+                    }
                     .sorted { ($0.year ?? 0) > ($1.year ?? 0) }
             } catch {
                 releases = []

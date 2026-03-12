@@ -50,10 +50,14 @@ final class DiscogsService {
 
         let response: DiscogsSearchResponse = try await client.get(url, headers: authHeaders)
         return response.results.map { result in
-            Album(
+            // Discogs search titles use "Artist - Title" format
+            let parts = result.title.split(separator: " - ", maxSplits: 1)
+            let parsedArtist = parts.count == 2 ? String(parts[0]) : ""
+            let parsedTitle = parts.count == 2 ? String(parts[1]) : result.title
+            return Album(
                 id: "discogs-\(result.id)",
-                title: result.title,
-                artistName: "",
+                title: parsedTitle,
+                artistName: parsedArtist,
                 year: result.year.flatMap { Int($0) },
                 genres: result.genre,
                 styles: result.style,
@@ -151,6 +155,55 @@ final class DiscogsService {
             musicBrainzID: nil,
             sources: [.discogs]
         )
+    }
+
+    // MARK: - Profile Markup Resolution
+
+    /// Resolve `[aNNNNN]` style ID-only references in Discogs profile text
+    /// by fetching artist names from the API.
+    func resolveProfileMarkup(_ profile: String) async -> String {
+        let pattern = #"\[a(\d+)\]"#
+        guard let regex = try? NSRegularExpression(pattern: pattern) else { return profile }
+        let matches = regex.matches(in: profile, range: NSRange(profile.startIndex..., in: profile))
+        guard !matches.isEmpty else { return profile }
+
+        // Collect unique artist IDs
+        var ids: [Int] = []
+        for match in matches {
+            if let range = Range(match.range(at: 1), in: profile),
+               let id = Int(profile[range]),
+               !ids.contains(id) {
+                ids.append(id)
+            }
+        }
+
+        // Resolve names in parallel (cap at 15 to avoid excessive API calls)
+        var resolvedNames: [Int: String] = [:]
+        let cappedIDs = Array(ids.prefix(15))
+        // Build URLs on this actor before entering the task group
+        let urlMap: [(Int, URL)] = cappedIDs.compactMap { id in
+            guard let url = buildURL(path: "/artists/\(id)") else { return nil }
+            return (id, url)
+        }
+        let headers = authHeaders
+        await withTaskGroup(of: (Int, String?).self) { group in
+            for (id, url) in urlMap {
+                group.addTask {
+                    let result: DiscogsArtistDetail? = try? await self.client.get(url, headers: headers)
+                    return (id, result?.name)
+                }
+            }
+            for await (id, name) in group {
+                if let name { resolvedNames[id] = name }
+            }
+        }
+
+        // Replace [aNNNN] with [a=Name] so the standard stripping picks it up
+        var text = profile
+        for (id, name) in resolvedNames {
+            text = text.replacingOccurrences(of: "[a\(id)]", with: "[a=\(name)]")
+        }
+        return text
     }
 
     // MARK: - Helpers

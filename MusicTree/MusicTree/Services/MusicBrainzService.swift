@@ -177,6 +177,61 @@ final class MusicBrainzService {
             } ?? []
         } ?? []
 
+        // Parse release-level artist relations into credits (musicians, producers, etc.)
+        var credits: [Credit] = []
+        for rel in response.relations ?? [] {
+            guard let name = rel.artist?.name, let type = rel.type else { continue }
+            let role: String
+            let attributes = rel.attributes ?? []
+            switch type {
+            case "performer", "instrument", "vocal":
+                role = attributes.isEmpty ? type.capitalized : attributes.map(\.capitalized).joined(separator: ", ")
+            case "producer":
+                role = "Producer"
+            case "engineer":
+                role = "Engineer"
+            case "mix":
+                role = "Mixing"
+            case "recording":
+                role = "Recording"
+            case "mastering":
+                role = "Mastering"
+            default:
+                role = type.capitalized
+            }
+            credits.append(Credit(name: name, role: role, tracks: nil))
+        }
+
+        // Also collect recording-level relations (per-track performers)
+        for medium in response.media ?? [] {
+            for track in medium.tracks ?? [] {
+                for rel in track.recording?.relations ?? [] {
+                    guard let name = rel.artist?.name, let type = rel.type else { continue }
+                    let attributes = rel.attributes ?? []
+                    let role: String
+                    switch type {
+                    case "performer", "instrument", "vocal":
+                        role = attributes.isEmpty ? type.capitalized : attributes.map(\.capitalized).joined(separator: ", ")
+                    default:
+                        role = type.capitalized
+                    }
+                    credits.append(Credit(name: name, role: role, tracks: track.title ?? track.recording?.title))
+                }
+            }
+        }
+
+        // Deduplicate credits with same name + role (merge track references)
+        var deduped: [String: Credit] = [:]
+        for credit in credits {
+            let key = "\(credit.name)|\(credit.role)"
+            if let existing = deduped[key] {
+                let mergedTracks = [existing.tracks, credit.tracks].compactMap { $0 }.joined(separator: ", ")
+                deduped[key] = Credit(name: credit.name, role: credit.role, tracks: mergedTracks.isEmpty ? nil : mergedTracks)
+            } else {
+                deduped[key] = credit
+            }
+        }
+
         return Album(
             id: "mb-\(response.id)",
             title: response.title,
@@ -186,7 +241,7 @@ final class MusicBrainzService {
             styles: nil,
             coverImageURL: "https://coverartarchive.org/release/\(response.id)/front-500",
             tracklist: tracks,
-            credits: nil,
+            credits: deduped.isEmpty ? nil : Array(deduped.values).sorted { $0.role < $1.role },
             formats: nil,
             country: response.country,
             labels: nil,
@@ -329,9 +384,10 @@ struct MBReleaseDetail: Decodable {
     let country: String?
     let artistCredit: [MBArtistCredit]?
     let media: [MBMedium]?
+    let relations: [MBReleaseArtistRelation]?
 
     enum CodingKeys: String, CodingKey {
-        case id, title, date, country, media
+        case id, title, date, country, media, relations
         case artistCredit = "artist-credit"
     }
 }
@@ -350,6 +406,13 @@ struct MBTrack: Decodable {
 struct MBRecording: Decodable {
     let title: String?
     let length: Int?
+    let relations: [MBReleaseArtistRelation]?
+}
+
+struct MBReleaseArtistRelation: Decodable {
+    let type: String?
+    let artist: MBArtistRef?
+    let attributes: [String]?
 }
 
 struct MBReleaseGroupResponse: Decodable {
