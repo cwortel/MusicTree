@@ -102,13 +102,13 @@ final class ArtistDetailViewModel {
         }
 
         if !mbReleases.isEmpty {
-            // Inject artist name into releases (MB release-groups don't include it)
+            // Use actual artist credit from API; fall back to viewed artist name if empty
             let artistName = artist.name
             releases = mbReleases.map { album in
                 Album(
                     id: album.id,
                     title: album.title,
-                    artistName: artistName,
+                    artistName: album.artistName.isEmpty ? artistName : album.artistName,
                     year: album.year,
                     genres: album.genres,
                     styles: album.styles,

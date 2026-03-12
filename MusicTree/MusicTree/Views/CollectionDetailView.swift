@@ -41,24 +41,7 @@ struct CollectionDetailView: View {
             if let sourceID = item.sourceID {
                 Section {
                     NavigationLink {
-                        AlbumDetailView(album: Album(
-                            id: sourceID,
-                            title: item.albumTitle,
-                            artistName: item.artistName,
-                            year: item.year,
-                            genres: item.genres.isEmpty ? nil : item.genres,
-                            styles: nil,
-                            coverImageURL: item.coverImageURL,
-                            tracklist: nil,
-                            credits: nil,
-                            formats: item.formats.isEmpty ? nil : item.formats,
-                            country: nil,
-                            labels: item.labels.isEmpty ? nil : item.labels,
-                            discogsID: sourceID.hasPrefix("discogs-") ? Int(sourceID.dropFirst(8)) : nil,
-                            musicBrainzID: sourceID.hasPrefix("mb-") ? String(sourceID.dropFirst(3)) : nil,
-                            sources: sourceID.hasPrefix("mb-") ? [.musicBrainz] : [.discogs],
-                            isReleaseGroup: sourceID.hasPrefix("mb-")
-                        ))
+                        AlbumDetailView(album: Self.reconstructAlbum(from: item, sourceID: sourceID))
                     } label: {
                         Label("View Full Release", systemImage: "music.note.list")
                     }
@@ -80,5 +63,63 @@ struct CollectionDetailView: View {
                 )
             }
         }
+    }
+
+    /// Reconstruct an Album from a CollectionItem, correctly parsing source IDs
+    private static func reconstructAlbum(from item: CollectionItem, sourceID: String) -> Album {
+        let discogsID: Int?
+        let discogsMasterID: Int?
+        let musicBrainzID: String?
+        let sources: Set<APISource>
+        let isReleaseGroup: Bool
+
+        if sourceID.hasPrefix("discogs-m") {
+            // Discogs master release
+            discogsID = nil
+            discogsMasterID = Int(sourceID.dropFirst(9))
+            musicBrainzID = nil
+            sources = [.discogs]
+            isReleaseGroup = false
+        } else if sourceID.hasPrefix("discogs-") {
+            // Discogs release
+            discogsID = Int(sourceID.dropFirst(8))
+            discogsMasterID = nil
+            musicBrainzID = nil
+            sources = [.discogs]
+            isReleaseGroup = false
+        } else if sourceID.hasPrefix("mb-") {
+            // MusicBrainz release-group
+            discogsID = nil
+            discogsMasterID = nil
+            musicBrainzID = String(sourceID.dropFirst(3))
+            sources = [.musicBrainz]
+            isReleaseGroup = true
+        } else {
+            discogsID = nil
+            discogsMasterID = nil
+            musicBrainzID = nil
+            sources = []
+            isReleaseGroup = false
+        }
+
+        return Album(
+            id: sourceID,
+            title: item.albumTitle,
+            artistName: item.artistName,
+            year: item.year,
+            genres: item.genres.isEmpty ? nil : item.genres,
+            styles: nil,
+            coverImageURL: item.coverImageURL,
+            tracklist: nil,
+            credits: nil,
+            formats: item.formats.isEmpty ? nil : item.formats,
+            country: nil,
+            labels: item.labels.isEmpty ? nil : item.labels,
+            discogsID: discogsID,
+            discogsMasterID: discogsMasterID,
+            musicBrainzID: musicBrainzID,
+            sources: sources,
+            isReleaseGroup: isReleaseGroup
+        )
     }
 }

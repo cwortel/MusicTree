@@ -16,6 +16,7 @@ struct Album: Identifiable, Codable, Hashable {
     let labels: [String]?
 
     var discogsID: Int?
+    var discogsMasterID: Int?
     var musicBrainzID: String?
     var sources: Set<APISource>
     var isReleaseGroup: Bool = false
@@ -26,5 +27,14 @@ struct Album: Identifiable, Codable, Hashable {
             return type
         }
         return "Other"
+    }
+
+    // Stable identity for SwiftUI navigation — only use `id`
+    static func == (lhs: Album, rhs: Album) -> Bool {
+        lhs.id == rhs.id
+    }
+
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(id)
     }
 }

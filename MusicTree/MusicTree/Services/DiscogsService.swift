@@ -105,8 +105,9 @@ final class DiscogsService {
 
         let response: DiscogsArtistReleasesResponse = try await client.get(url, headers: authHeaders)
         return response.releases.map { release in
-            Album(
-                id: "discogs-\(release.id)",
+            let isMaster = release.type == "master"
+            return Album(
+                id: "discogs-\(isMaster ? "m" : "")\(release.id)",
                 title: release.title,
                 artistName: release.artist ?? "",
                 year: release.year,
@@ -118,7 +119,8 @@ final class DiscogsService {
                 formats: release.format.map { [$0] },
                 country: nil,
                 labels: nil,
-                discogsID: release.id,
+                discogsID: isMaster ? nil : release.id,
+                discogsMasterID: isMaster ? release.id : nil,
                 musicBrainzID: nil,
                 sources: [.discogs]
             )
@@ -155,6 +157,15 @@ final class DiscogsService {
             musicBrainzID: nil,
             sources: [.discogs]
         )
+    }
+
+    /// Resolve a Discogs master release to its main release, then fetch full details.
+    func getMasterRelease(id: Int) async throws -> Album {
+        guard let url = buildURL(path: "/masters/\(id)") else {
+            throw NetworkError.invalidResponse
+        }
+        let master: DiscogsMasterDetail = try await client.get(url, headers: authHeaders)
+        return try await getRelease(id: master.mainRelease)
     }
 
     // MARK: - Profile Markup Resolution
@@ -289,6 +300,14 @@ struct DiscogsImage: Decodable {
     let resourceUrl: String?
 }
 
+struct DiscogsMasterDetail: Decodable {
+    let mainRelease: Int
+
+    enum CodingKeys: String, CodingKey {
+        case mainRelease = "main_release"
+    }
+}
+
 struct DiscogsArtistReleasesResponse: Decodable {
     let releases: [DiscogsArtistRelease]
 }
@@ -301,4 +320,5 @@ struct DiscogsArtistRelease: Decodable {
     let thumb: String?
     let format: String?
     let role: String?
+    let type: String?
 }

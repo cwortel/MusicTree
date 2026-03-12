@@ -26,6 +26,8 @@ final class AlbumDetailViewModel {
             // Prefer Discogs for credits
             if let discogsID = album.discogsID {
                 album = try await discogs.getRelease(id: discogsID)
+            } else if let masterID = album.discogsMasterID {
+                album = try await discogs.getMasterRelease(id: masterID)
             } else if let mbid = album.musicBrainzID {
                 if album.isReleaseGroup {
                     album = try await musicBrainz.getReleaseGroupDetail(rgid: mbid)

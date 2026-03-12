@@ -91,6 +91,7 @@ struct ArtistDetailView: View {
                                     ReleaseTypeSection(
                                         type: group.type,
                                         albums: group.albums,
+                                        viewedArtistName: viewModel.artist.name,
                                         isExpanded: Binding(
                                             get: { expandedTypes.contains(group.type) },
                                             set: { newValue in
@@ -231,6 +232,7 @@ struct ArtistDetailView: View {
 private struct ReleaseTypeSection: View {
     let type: String
     let albums: [Album]
+    let viewedArtistName: String
     @Binding var isExpanded: Bool
 
     private var icon: String {
@@ -244,9 +246,9 @@ private struct ReleaseTypeSection: View {
 
     var body: some View {
         DisclosureGroup(isExpanded: $isExpanded) {
-            LazyVStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: 4) {
                 ForEach(albums) { album in
-                    ReleaseRow(album: album)
+                    ReleaseRow(album: album, viewedArtistName: viewedArtistName)
                 }
             }
         } label: {
@@ -261,11 +263,13 @@ private struct ReleaseTypeSection: View {
 
 private struct ReleaseRow: View {
     let album: Album
+    let viewedArtistName: String
     @Environment(\.modelContext) private var modelContext
     @Query private var collectionItems: [CollectionItem]
 
-    init(album: Album) {
+    init(album: Album, viewedArtistName: String) {
         self.album = album
+        self.viewedArtistName = viewedArtistName
         let albumID: String? = album.id
         _collectionItems = Query(filter: #Predicate<CollectionItem> { item in
             item.sourceID == albumID
@@ -315,6 +319,12 @@ private struct ReleaseRow: View {
                 Text(album.title)
                     .font(.subheadline)
                     .foregroundStyle(.primary)
+                if !album.artistName.isEmpty,
+                   album.artistName.localizedCaseInsensitiveCompare(viewedArtistName) != .orderedSame {
+                    Text(album.artistName)
+                        .font(.caption)
+                        .foregroundStyle(.blue)
+                }
                 if let year = album.year {
                     Text(String(year))
                         .font(.caption)
